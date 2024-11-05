@@ -14,51 +14,26 @@ class AnkiDeck {
     );
   }
 
-  async _copyDeck(destination) {
-    const sourceDeckPath = path.join(this.ankiDataDir, "collection.anki2");
-    const sourceMediaPath = path.join(this.ankiDataDir, "media");
+  // #region public
 
+  /**
+   * Adds a new field to a specified deck and optionally copies the updated deck to a project folder.
+   *
+   * @param {string} deckName - The name of the deck to which the new field will be added.
+   * @param {string} fieldName - The name of the new field to be added to the deck.
+   * @param {string} [projectFolder] - The path to the project folder where the deck will be copied.
+   */
+  async addField(deckName, fieldName, projectFolder) {
     try {
-      // Copy the deck file
-      await fs.promises.copyFile(
-        sourceDeckPath,
-        path.join(destination, "collection.anki2")
-      );
-      console.log("Deck copied to:", destination);
+      // Add the field to the deck
+      await this._addField(deckName, fieldName);
 
-      // Copy the media folder
-      await fs.promises.cp(sourceMediaPath, path.join(destination, "media"), {
-        recursive: true,
-      });
-      console.log("Media copied to:", destination);
+      if (projectFolder) {
+        await this.copyDeckToProject(projectFolder);
+      }
     } catch (error) {
-      console.error("Error copying deck:", error);
+      console.error("Error in addFieldAndCopyDeck:", error);
     }
-  }
-
-  // Private method to introduce a delay
-  async _delay() {
-    return new Promise((resolve) => setTimeout(resolve, this.delayDuration));
-  }
-
-  // Private helper to fetch full card details for given card IDs
-  async _fetchCardDetails(cardIds) {
-    const response = await axios.post(this.ANKI_CONNECT_URL, {
-      action: "cardsInfo",
-      version: 6,
-      params: { cards: cardIds },
-    });
-    return response.data.result;
-  }
-
-  // Private helper to find card IDs in a specific deck
-  async _findCards(deckName) {
-    const response = await axios.post(this.ANKI_CONNECT_URL, {
-      action: "findCards",
-      version: 6,
-      params: { query: `deck:"${deckName}"` },
-    });
-    return response.data.result;
   }
 
   /**
@@ -166,6 +141,81 @@ class AnkiDeck {
       return null;
     }
   }
+
+  // #endregion public
+
+  // #region private
+  async _addField(deckName, fieldName) {
+    const addFieldPayload = {
+      action: "addFieldToDeck",
+      version: 6,
+      params: {
+        deckName: deckName,
+        fieldName: fieldName,
+      },
+    };
+
+    try {
+      // Add the field to the deck
+      const response = await axios.post(this.ANKI_CONNECT_URL, addFieldPayload);
+      console.log(`Field "${fieldName}" added to deck "${deckName}"`);
+      return response.data;
+    } catch (error) {
+      console.error(`Error adding field to deck: ${error}`);
+      throw error;
+    }
+  }
+
+  async _copyDeck(folderName) {
+    const sourceDeckPath = path.join(this.ankiDataDir, "collection.anki2");
+    const sourceMediaPath = path.join(this.ankiDataDir, "media");
+
+    const destination = path.join(__dirname, folderName);
+
+    try {
+      // Copy the deck file
+      await fs.promises.copyFile(
+        sourceDeckPath,
+        path.join(destination, "collection.anki2")
+      );
+      console.log("Deck copied to:", destination);
+
+      // Copy the media folder
+      await fs.promises.cp(sourceMediaPath, path.join(destination, "media"), {
+        recursive: true,
+      });
+      console.log("Media copied to:", destination);
+    } catch (error) {
+      console.error("Error copying deck:", error);
+    }
+  }
+
+  // Private method to introduce a delay
+  async _delay() {
+    return new Promise((resolve) => setTimeout(resolve, this.delayDuration));
+  }
+
+  // Private helper to fetch full card details for given card IDs
+  async _fetchCardDetails(cardIds) {
+    const response = await axios.post(this.ANKI_CONNECT_URL, {
+      action: "cardsInfo",
+      version: 6,
+      params: { cards: cardIds },
+    });
+    return response.data.result;
+  }
+
+  // Private helper to find card IDs in a specific deck
+  async _findCards(deckName) {
+    const response = await axios.post(this.ANKI_CONNECT_URL, {
+      action: "findCards",
+      version: 6,
+      params: { query: `deck:"${deckName}"` },
+    });
+    return response.data.result;
+  }
+
+  // #endregion private
 }
 
 export default AnkiDeck;
